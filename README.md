@@ -213,11 +213,11 @@ The sidebar uses:
 
 ## License
 
-This map component is built for LNESC (League of United Latin American Citizens National Educational Service Centers). All rights reserved.
+This map component is built for LNESC. All rights reserved.
 
 ## Support
 
-For questions or issues with the map component, please contact the LNESC web development team.
+For questions or issues with the map component, please contact the LNESC web development team: htokhi@lnesc.org
 
 ---
 
