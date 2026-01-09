@@ -1,6 +1,6 @@
  LNESC Interactive Map
 
-An interactive map component displaying the National Office and 16 education centers of LNESC (League of United Latin American Citizens National Educational Service Centers) across the United States and Puerto Rico.
+An interactive map component displaying the National Office and 16 education centers of LNESC (LULAC National Educational Service Services. across the United States and Puerto Rico.
 
 ## Features
 
