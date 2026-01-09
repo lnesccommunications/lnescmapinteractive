@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LNESC Interactive Map</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Scoped styles under .lnesc-map-section to avoid conflicts */
+        .lnesc-map-section * {
+            box-sizing: border-box;
+        }
+
+        .lnesc-map-section {
+            font-family: 'Montserrat', sans-serif;
+            width: 100%;
+            padding: 60px 20px;
+            overflow: hidden;
+        }
+
+        .lnesc-map-container {
+            max-width: 1440px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .lnesc-map-header {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto 40px;
+        }
+
+        .lnesc-map-header h2 {
+            color: #034983;
+            font-weight: 700;
+            font-size: 40px;
+            margin: 0 0 16px 0;
+            line-height: 1.2;
+        }
+
+        .lnesc-map-header p {
+            color: #000;
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .lnesc-map-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .lnesc-map-column {
+            flex: 0 1 70%;
+            min-width: 0;
+            position: relative;
+        }
+
+        .lnesc-sidebar-column {
+            flex: 0 1 280px;
+            min-width: 280px;
+            max-width: 400px;
+        }
+
+        /* Map Container */
+        .lnesc-map-wrapper {
+            position: relative;
+            width: 100%;
+            min-height: 400px;
+            isolation: isolate;
+        }
+
+        .lnesc-map-svg {
+            width: 100%;
+            height: auto;
+            max-height: 600px;
+        }
+
+        /* Map Glow Effect */
+        .lnesc-map-glow {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(ellipse 70% 60% at 45% 50%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.2) 40%, transparent 70%);
+            z-index: 1;
+            mix-blend-mode: overlay;
+            opacity: 0;
+        }
+
+        .lnesc-map-glow.active {
+            animation: glowPulse 3s ease-in-out forwards;
+        }
+
+        @keyframes glowPulse {
+            0% { opacity: 0; }
+            30% { opacity: 0.6; }
+            60% { opacity: 0.3; }
+            100% { opacity: 0; }
+        }
+
+        /* Emblem - 20% smaller */
+        .lnesc-emblem {
+            position: absolute;
+            right: -2%;
+            bottom: 24%;
+            width: 17.6%;
+            max-width: 160px;
+            z-index: 10;
+            cursor: pointer;
+            transition: filter 0.3s ease;
+            transform: translateX(1%);
+            pointer-events: auto;
+            opacity: 1;
+        }
+
+        .lnesc-emblem img {
+            width: 100%;
+            height: auto;
+            border-radius: 50%;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+        }
+
+        .lnesc-emblem:hover img {
+            filter: drop-shadow(0 0 20px rgba(198, 117, 33, 0.8)) drop-shadow(0 0 40px rgba(198, 117, 33, 0.5)) drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+        }
+
+        .lnesc-emblem-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 50%;
+        }
+
+        .lnesc-emblem-shine {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.4));
+            transform: skewX(-12deg);
+            animation: shine 6s infinite;
+            z-index: 5;
+        }
+
+        @keyframes shine {
+            100% { left: 125%; }
+        }
+
+        /* Puerto Rico Inset Map */
+        .lnesc-pr-map {
+            position: absolute;
+            bottom: 2%;
+            right: -2%;
+            width: 35%;
+            max-width: 240px;
+            aspect-ratio: 3/2;
+            z-index: 5;
+        }
+
+        /* Map Pins */
+        .lnesc-pin {
+            cursor: pointer;
+            transform-origin: center bottom;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .lnesc-pin.dropping {
+            animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+            transform: translateY(-50px) scale(0);
+        }
+
+        @keyframes dropIn {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(0.78);
+            }
+        }
+
+        .lnesc-pin:hover {
+            transform: scale(1) !important;
+        }
+
+        /* Sidebar */
+        .lnesc-sidebar {
+            background: #c67521;
+            border: 2px solid #2769B9;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .lnesc-sidebar-item {
+            padding: 5px 8px;
+            margin: 0 -8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .lnesc-sidebar-item:hover {
+            background: #022A4F;
+        }
+
+        .lnesc-sidebar-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .lnesc-sidebar-item-name {
+            font-weight: 500;
+            font-size: 16px;
+            flex: 1;
+        }
+
+        .lnesc-sidebar-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lnesc-sidebar-icon .arrow {
+            font-size: 19px;
+        }
+
+        .lnesc-sidebar-icon .grad {
+            display: none;
+        }
+
+        .lnesc-sidebar-item:hover .lnesc-sidebar-icon .arrow {
+            display: none;
+        }
+
+        .lnesc-sidebar-item:hover .lnesc-sidebar-icon .grad {
+            display: block;
+        }
+
+        .lnesc-sidebar-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, margin-top 0.3s ease, opacity 0.3s ease;
+            margin-top: 0;
+            opacity: 0;
+            font-size: 13px;
+            line-height: 1.4;
+            padding-left: 4px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .lnesc-sidebar-item:hover .lnesc-sidebar-details {
+            max-height: 200px;
+            margin-top: 8px;
+            padding-top: 8px;
+            opacity: 0.9;
+        }
+
+        .lnesc-sidebar-details p {
+            margin: 2px 0;
+        }
+
+        .lnesc-sidebar-details .phone {
+            margin-top: 4px;
+            font-weight: 500;
+            color: #ffd7aa;
+        }
+
+        /* Tooltip - appears above pin */
+        .lnesc-tooltip {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+            border: 1px solid #e5e5e5;
+            z-index: 99999;
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, calc(-100% - 10px)) scale(0.95);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            width: 240px;
+        }
+
+        .lnesc-tooltip.active {
+            opacity: 1;
+            transform: translate(-50%, calc(-100% - 10px)) scale(1);
+        }
+
+        .lnesc-tooltip h3 {
+            color: #0B4F87;
+            font-weight: 700;
+            font-size: 16px;
+            margin: 0 0 8px 0;
+            line-height: 1.2;
+        }
+
+        .lnesc-tooltip p {
+            color: #666;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 2px 0;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 1024px) {
+            .lnesc-map-content {
+                flex-direction: column;
+            }
+
+            .lnesc-map-column,
+            .lnesc-sidebar-column {
+                width: 100%;
+                flex: 1 1 100%;
+                max-width: 100%;
+            }
+
+            .lnesc-sidebar-column {
+                display: flex;
+                justify-content: center;
+            }
+
+            .lnesc-map-wrapper {
+                min-height: 350px;
+            }
+
+            .lnesc-map-header h2 {
+                font-size: 32px;
+            }
+
+            .lnesc-map-header p {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="lnesc-map-section">
+        <div class="lnesc-map-container">
+            <!-- Header -->
+            <div class="lnesc-map-header">
+                <h2>Education Centers</h2>
+                <p>Our education centers are at the forefront of helping disadvantaged students across the United States and Puerto Rico.</p>
+            </div>
+
+            <!-- Content -->
+            <div class="lnesc-map-content">
+                <!-- Map Column -->
+                <div class="lnesc-map-column">
+                    <div class="lnesc-map-wrapper" id="mapWrapper">
+                        <!-- Glow Effect -->
+                        <div class="lnesc-map-glow" id="mapGlow"></div>
+
+                        <!-- Emblem -->
+                        <div class="lnesc-emblem">
+                            <div class="lnesc-emblem-container">
+                                <img src="https://images.unsplash.com/photo-1599658880436-c61792e70672?w=200&h=200&fit=crop" alt="LNESC Emblem">
+                                <div class="lnesc-emblem-shine"></div>
+                            </div>
+                        </div>
+
+                        <!-- Main US Map SVG -->
+                        <svg id="mainMap" class="lnesc-map-svg" viewBox="0 0 960 600"></svg>
+
+                        <!-- Puerto Rico Inset -->
+                        <div class="lnesc-pr-map">
+                            <svg id="prMap" style="width: 100%; height: 100%;" viewBox="0 0 300 200"></svg>
+                        </div>
+
+                        <!-- Tooltip -->
+                        <div class="lnesc-tooltip" id="tooltip">
+                            <h3 id="tooltipName"></h3>
+                            <div id="tooltipContent"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Column -->
+                <div class="lnesc-sidebar-column">
+                    <div class="lnesc-sidebar" id="sidebar"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <script>
+    (function() {
+        'use strict';
+
+        // Location data - exactly from data.ts
+        const locations = [
+            { id: "hq", name: "National Office", address: ["1150 18th St NW #275", "Washington, DC 20036"], phone: "(202) 835-9646", lat: 36.9045344, lng: -76.1919821, isHQ: true, stateCode: "DC", url: "https://www.lnesc.org/about/lnesc/" },
+            { id: "albuquerque", name: "Albuquerque", address: ["625 Silver Ave SW, Suite 130", "Albuquerque, NM 87120"], phone: "(505) 243-3787", lat: 35.0834, lng: -106.6550, isHQ: false, stateCode: "NM", url: "https://www.lnesc.org/centers/albuquerque/" },
+            { id: "austin", name: "Austin", address: ["2124 E. 6th St. Unit 101", "Austin TX, 78745"], phone: "(818) 631-4557", lat: 30.2535, lng: -97.7193, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/austin/" },
+            { id: "bayamon", name: "Bayamón", address: ["Universidad Interamericana", "500 Dr. John Will Harris", "Bayamón, PR 00957"], phone: "(787) 279-1912", lat: 18.3985, lng: -66.1572, isHQ: false, stateCode: "PR", url: "https://www.lnesc.org/centers/bayamon/" },
+            { id: "colorado_springs", name: "Colorado Springs", address: ["4112 E. Bijou St.", "Colorado Springs, CO 80909"], phone: "(719) 635-6542", lat: 38.8350, lng: -106.27, isHQ: false, stateCode: "CO", url: "https://www.lnesc.org/centers/colorado_springs/" },
+            { id: "corpus_christi", name: "Corpus Christi", address: ["400 Mann Street, Suite 513", "Corpus Christi, TX 78401-2047"], phone: "(361) 883-5134", lat: 28.6346, lng: -97.3964, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/corpus_christi/" },
+            { id: "dallas", name: "Dallas", address: ["345 S. Edgefield Avenue", "Dallas, Texas 75208"], phone: "(214) 943-2528", lat: 32.7455, lng: -100.65, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/dallas/" },
+            { id: "el_paso", name: "El Paso", address: ["Julian Tellez Sr. Senior Citizens Community Center", "8908 Old County", "El Paso, Texas 79907"], phone: "", lat: 32.2000, lng: -96.784, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/elpaso/" },
+            { id: "houston", name: "Houston", address: ["6200 Gulf Freeway, Suite 106", "Houston, Texas 77023"], phone: "(713) 236-0620", lat: 29.7011, lng: -95.2885, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/houston/" },
+            { id: "kansas_city", name: "Kansas City", address: ["148 N. Topping Avenue", "Kansas City, MO 64123"], phone: "(816) 581-5683", lat: 39.1195, lng: -92.0000, isHQ: false, stateCode: "MO", url: "https://www.lnesc.org/centers/kansas_city/" },
+            { id: "miami", name: "Miami", address: ["14750 S.W. 26th Street, Suite 201", "Miami, Florida 33185"], phone: "(305) 554-8566", lat: 27.2500, lng: -80.4200, isHQ: false, stateCode: "FL", url: "https://www.lnesc.org/centers/miami/" },
+            { id: "oxnard", name: "Oxnard", address: ["Channel Islands High School", "1400 Raiders Way", "Oxnard, CA 93033"], phone: "(818) 631-4557", lat: 35.6000, lng: -119.0500, isHQ: false, stateCode: "CA", url: "https://www.lnesc.org/centers/oxnard/" },
+            { id: "philadelphia", name: "Philadelphia", address: ["2463 Emerald Street", "Philadelphia, PA 19125"], phone: "(215) 423-4811", lat: 41.4000, lng: -78.5000, isHQ: false, stateCode: "PA", url: "https://www.lnesc.org/centers/philadelphia/" },
+            { id: "pueblo", name: "Pueblo", address: ["609 North Erie Avenue", "Pueblo, CO 81001"], phone: "(719) 637-0037", lat: 38.2690, lng: -104.6099, isHQ: false, stateCode: "CO", url: "https://www.lnesc.org/centers/pueblo/" },
+            { id: "san_antonio", name: "San Antonio", address: ["342 W Woodlawn Ave Ste, 201", "San Antonio, TX 78212"], phone: "(210) 226-2772", lat: 30.92, lng: -102.4411, isHQ: false, stateCode: "TX", url: "https://www.lnesc.org/centers/sanantonio/" },
+            { id: "san_diego", name: "San Diego", address: ["2363 Needham Rd. Suite #155", "El Cajon, CA. 92020"], phone: "(619) 303-0726", lat: 34.2000, lng: -116.8900, isHQ: false, stateCode: "CA", url: "https://www.lnesc.org/centers/san_diego/" },
+            { id: "vancouver", name: "Vancouver", address: ["Evergreen High School", "14300 NE 18TH Street", "Vancouver, WA 98684"], phone: "(360) 604-3758", lat: 47.6000, lng: -122.4000, isHQ: false, stateCode: "WA", url: "https://www.lnesc.org/centers/vancouver/" },
+            { id: "puertorico", name: "Puerto Rico", address: ["Paseo Covadonga 54", "Ponce, PR 00717"], phone: "(787) 259-8922", lat: 18.0, lng: -66.6, isHQ: false, stateCode: "PR", url: "https://www.lnesc.org/centers/puerto-rico/" }
+        ];
+
+        const activeStates = ["Washington", "California", "New Mexico", "Colorado", "Texas", "Missouri", "Florida", "Pennsylvania", "District of Columbia"];
+
+        const COLORS = {
+            navy: "#0B4F87",
+            mediumBlue: "#034983",
+            lighterBlue: "#2769B9",
+            orange: "#F7931D",
+            white: "#FFFFFF"
+        };
+
+        let hoveredLocationId = null;
+        let hasAnimated = false;
+
+        // Create pin SVG
+        function createPin(isHQ) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("transform", "translate(-25, -50)");
+            
+            // Teardrop
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", "M25 0C11.2 0 0 11.2 0 25c0 14.5 25 50 25 50s25-35.5 25-50C50 11.2 38.8 0 25 0z");
+            path.setAttribute("fill", COLORS.orange);
+            path.setAttribute("stroke", COLORS.white);
+            path.setAttribute("stroke-width", "2");
+            path.style.filter = "drop-shadow(0 4px 8px rgba(0,0,0,0.15))";
+            g.appendChild(path);
+            
+            // Icon
+            const iconG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            iconG.setAttribute("transform", "translate(13, 12)");
+            
+            if (isHQ) {
+                // Star icon
+                const star = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                star.setAttribute("d", "M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z");
+                star.setAttribute("fill", COLORS.white);
+                iconG.appendChild(star);
+            } else {
+                // Grad cap icon
+                const cap = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                cap.setAttribute("d", "M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18C5 17.18 8.13 19.18 12 19.18C15.87 19.18 19 17.18 19 17.18V13.18C17.28 14.14 14.76 14.73 12 14.73C9.24 14.73 6.72 14.14 5 13.18Z");
+                cap.setAttribute("fill", COLORS.white);
+                iconG.appendChild(cap);
+            }
+            
+            g.appendChild(iconG);
+            return g;
+        }
+
+        // Render sidebar - sorted with HQ first, then alphabetical
+        function renderSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const sortedLocations = [...locations].sort((a, b) => {
+                if (a.isHQ) return -1;
+                if (b.isHQ) return 1;
+                return a.name.localeCompare(b.name);
+            });
+            
+            sortedLocations.forEach(loc => {
+                const item = document.createElement('div');
+                item.className = 'lnesc-sidebar-item';
+                item.innerHTML = `
+                    <div class="lnesc-sidebar-item-header">
+                        <div class="lnesc-sidebar-item-name">${loc.name}</div>
+                        <div class="lnesc-sidebar-icon">
+                            <span class="arrow">»</span>
+                            <svg class="grad" width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18C5 17.18 8.13 19.18 12 19.18C15.87 19.18 19 17.18 19 17.18V13.18C17.28 14.14 14.76 14.73 12 14.73C9.24 14.73 6.72 14.14 5 13.18Z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="lnesc-sidebar-details">
+                        ${loc.address.map(line => `<p>${line}</p>`).join('')}
+                        ${loc.phone ? `<p class="phone">${loc.phone}</p>` : ''}
+                    </div>
+                `;
+                
+                item.addEventListener('mouseenter', () => {
+                    hoveredLocationId = loc.id;
+                    updatePinScales();
+                });
+                
+                item.addEventListener('mouseleave', () => {
+                    hoveredLocationId = null;
+                    updatePinScales();
+                });
+                
+                item.addEventListener('click', () => {
+                    window.location.href = loc.url;
+                });
+                
+                sidebar.appendChild(item);
+            });
+        }
+
+        // Update pin scales on hover
+        function updatePinScales() {
+            d3.selectAll('.lnesc-pin').each(function(d) {
+                const pin = d3.select(this);
+                const isHovered = d && d.id === hoveredLocationId;
+                const baseScale = parseFloat(pin.attr('data-scale')) || 0.78;
+                pin.transition()
+                    .duration(300)
+                    .attr('transform', `translate(${pin.attr('data-x')}, ${pin.attr('data-y')}) scale(${isHovered ? 1 : baseScale})`);
+            });
+        }
+
+        // Show tooltip - positioned above the pin
+        function showTooltip(loc, event) {
+            const tooltip = document.getElementById('tooltip');
+            const tooltipName = document.getElementById('tooltipName');
+            const tooltipContent = document.getElementById('tooltipContent');
+            
+            tooltipName.textContent = loc.name;
+            tooltipContent.innerHTML = `
+                ${loc.address.map(line => `<p>${line}</p>`).join('')}
+                ${loc.phone ? `<p>Phone: ${loc.phone}</p>` : ''}
+            `;
+            
+            const rect = document.getElementById('mapWrapper').getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            tooltip.style.left = `${x}px`;
+            tooltip.style.top = `${y}px`;
+            tooltip.classList.add('active');
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('active');
+        }
+
+        // Load and render maps
+        async function initMaps() {
+            const us = await d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+            const states = topojson.feature(us, us.objects.states);
+            
+            // Main US Map
+            const width = 960;
+            const height = 600;
+            const projection = d3.geoAlbersUsa().scale(1300).translate([width / 2, height / 2]);
+            const path = d3.geoPath().projection(projection);
+            
+            const svg = d3.select("#mainMap");
+            
+            svg.selectAll("path")
+                .data(states.features)
+                .join("path")
+                .attr("d", path)
+                .attr("fill", d => activeStates.includes(d.properties.name) || d.id === "11" ? COLORS.lighterBlue : COLORS.navy)
+                .attr("stroke", COLORS.white)
+                .attr("stroke-width", 1);
+            
+            // Filter locations for main map (exclude PR)
+            const mainLocations = locations.filter(l => l.stateCode !== "PR");
+            const prLocation = locations.find(l => l.stateCode === "PR");
+            
+            // Add pins with staggered animation
+            mainLocations.forEach((loc, index) => {
+                const coords = projection([loc.lng, loc.lat]);
+                if (coords) {
+                    const pinGroup = svg.append("g")
+                        .attr("class", "lnesc-pin dropping")
+                        .attr("data-x", coords[0])
+                        .attr("data-y", coords[1])
+                        .attr("data-scale", 0.78)
+                        .style("animation-delay", `${index * 0.08}s`)
+                        .datum(loc);
+                    
+                    pinGroup.node().appendChild(createPin(loc.isHQ));
+                    
+                    pinGroup
+                        .on("mouseenter", function(event) {
+                            hoveredLocationId = loc.id;
+                            updatePinScales();
+                            showTooltip(loc, event);
+                        })
+                        .on("mouseleave", function() {
+                            hoveredLocationId = null;
+                            updatePinScales();
+                            hideTooltip();
+                        })
+                        .on("click", () => window.location.href = loc.url);
+                }
+            });
+            
+            // Puerto Rico Inset
+            const prProjection = d3.geoMercator().scale(14000).center([-66.4, 18.2]);
+            const prPath = d3.geoPath().projection(prProjection);
+            const prSvg = d3.select("#prMap");
+            
+            const prState = states.features.find(f => f.id === "72");
+            if (prState && prLocation) {
+                prSvg.append("path")
+                    .datum(prState)
+                    .attr("d", prPath)
+                    .attr("fill", COLORS.lighterBlue)
+                    .attr("stroke", COLORS.white)
+                    .attr("stroke-width", 1);
+                
+                const prCoords = prProjection([prLocation.lng, prLocation.lat]);
+                if (prCoords) {
+                    const prPin = prSvg.append("g")
+                        .attr("class", "lnesc-pin dropping")
+                        .attr("data-x", prCoords[0])
+                        .attr("data-y", prCoords[1])
+                        .attr("data-scale", 3.5)
+                        .attr("transform", `translate(${prCoords[0]}, ${prCoords[1]}) scale(3.5)`)
+                        .style("animation-delay", `${mainLocations.length * 0.08}s`)
+                        .datum(prLocation);
+                    
+                    prPin.node().appendChild(createPin(false));
+                    
+                    prPin
+                        .on("mouseenter", function(event) {
+                            hoveredLocationId = prLocation.id;
+                            updatePinScales();
+                            showTooltip(prLocation, event);
+                        })
+                        .on("mouseleave", function() {
+                            hoveredLocationId = null;
+                            updatePinScales();
+                            hideTooltip();
+                        })
+                        .on("click", () => window.location.href = prLocation.url);
+                }
+            }
+        }
+
+        // Intersection Observer for scroll animation
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !hasAnimated) {
+                    hasAnimated = true;
+                    document.getElementById('mapGlow').classList.add('active');
+                }
+            });
+        }, { threshold: 0.3 });
+
+        // Initialize
+        renderSidebar();
+        initMaps();
+        observer.observe(document.getElementById('mapWrapper'));
+    })();
+    </script>
+</body>
+</html>
